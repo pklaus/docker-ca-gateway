@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+
+  ca-gateway:
+    image: pklaus/ca-gateway
+    container_name: ca-gateway
+    expose:
+      - "5064-5065/udp"
+      - "5064-5065"
+    ports:
+      - "5064-5065:5064-5065/udp"
+      - "5064-5065:5064-5065"
+    restart: always
+    networks:
+      # the network that's alphabetically first will be the one with the forwarded ports
+      a_epics_supervisory:
+        ipv4_address: 172.100.255.254
+      epics_field:
+        ipv4_address: 172.20.255.254
+    environment:
+      - SIP=172.100.255.254
+      - CIP=172.20.255.255
+    command: /bin/bash ./start_gateway.sh
+
+  softioc:
+    image: pklaus/epics_base:7.0.2.2_debian
+    stdin_open: true
+    tty: true
+    working_dir: /epics/iocs/example/iocBoot/iocEXAMPLE
+    expose:
+      - "5064-5065/udp"
+      - "5064-5065"
+    networks:
+      - epics_field
+    command: ./st.cmd
+
+  camonitor_on_supervisory:
+    image: pklaus/epics_base:7.0.2.2_debian
+    networks:
+      - a_epics_supervisory
+    stdin_open: true
+    tty: true
+    command: /bin/bash -c "sleep 5 && camonitor root:ai1"
+
+networks:
+
+  # alphabetically first, so that port forwardings get to this network
+  a_epics_supervisory:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.100.0.0/16"
+
+  epics_field:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.20.0.0/16"

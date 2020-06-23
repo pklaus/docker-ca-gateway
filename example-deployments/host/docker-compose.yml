@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+
+  ca-gateway:
+    image: pklaus/ca-gateway
+    container_name: ca-gateway
+    network_mode: host
+    expose:
+      - "5064-5065/udp"
+      - "5064-5065"
+    ports:
+      - "5064-5065:5064-5065/udp"
+      - "5064-5065:5064-5065"
+    restart: always
+    environment:
+      - SIP=10.2.1.53 # <- adjust to IP of your host machine
+      - CIP=172.20.255.255
+    command: /bin/bash ./start_gateway.sh
+
+  softioc:
+    image: pklaus/epics_base:7.0.2.2_debian
+    stdin_open: true
+    tty: true
+    working_dir: /epics/iocs/example/iocBoot/iocEXAMPLE
+    expose:
+      - "5064-5065/udp"
+      - "5064-5065"
+    networks:
+      - epics_field
+    command: ./st.cmd
+
+  camonitor_on_host:
+    image: pklaus/epics_base:7.0.2.2_debian
+    network_mode: host
+    stdin_open: true
+    tty: true
+    environment:
+      - EPICS_CA_ADDR_LIST=10.2.1.53 # <- adjust to IP of your host machine
+      - EPICS_CA_AUTO_ADDR_LIST=no
+    command: /bin/bash -c "sleep 5 && camonitor root:ai1"
+
+networks:
+
+  epics_field:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.20.0.0/16"
