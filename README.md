@@ -1,13 +1,61 @@
 # EPICS CA Gateway in a Docker Container
 
-The configuration files pvlist / access are placed in `/scs/config`,
-so when deploying the image, you can bind-mount a different set
-of files to that directory.
-More detailed examples for the configuration files can be found here:
-<https://github.com/epics-extensions/ca-gateway/tree/master/example>
+This is a Docker distribution of the EPICS CA Gateway.
+
+* The CA Gateway executable `/epics/gateway` is set as Docker `ENTRYPOINT` of the image,
+  so any arguments you provide to a `docker run` call will directly go the the executable.
+  (It will run under an image-internal **`scs` user**.)
+* The image **doesn't ship with default configuration files**.
+  Simply bind-mount them to the image (or derive from this image, add your own
+  and set a custom `CMD` if you prefer that).
+* The resulting images when building this Dockerfile are extremely small
+  because they don't contain a full Linux system but instead only CA Gateway
+  executable `/epics/gateway` and the software libraries it depends on.
+* Pre-built (multi-arch) images can be found on the Docker Hub at: [/r/pklaus/ca-gateway][].
 
 This Dockerfile was inspired by prior work of F.Feldbauer.
 
+## Example Call
+
+Let's assume that a couple of IOC are running on different machines
+on the network 192.168.99.0/24.
+In order to access the process variables provided by those IOCs on
+Now a computer in a different network, let's say 192.168.99.0/24,
+needs to access the process variables provided by those IOCs.
+To accomplish this, a computer connected to both networks can run
+a *CA Gateway* instance.
+
+Let's say this computer has two network interfaces, one in each network.
+The first one being configured to the IP addresses 192.168.1.2 and second
+one to 192.168.99.123.
+
+Here's an example call to start the CA Gateway allowing clients on
+192.168.99.0/24 to connect to the PVs of the IOCs in the other network:
+
+```
+docker run \
+  --rm \
+  -v $(pwd)/example-deployments/_conf/access:/access:ro \
+  -v $(pwd)/example-deployments/_conf/pvlist:/pvlist:ro \
+  --hostname tmp \
+  --network host \
+  pklaus/ca-gateway \
+  -access /access -pvlist /pvlist -sip 192.168.1.2 -cip 192.168.99.255
+```
+
+In this example, the gateway will listen on 192.168.1.2 for CA requests and forward
+them to to the secondary network (with the broadcast address 192.168.99.255).
+
+Note that this is only one of many thinkable use cases of CA Gateway and that in many
+cases a VPN with UDP support or IP Routing could also do the job described in this example.
+In addition to just being a gateway it can help reducing load from the IOCs
+by centralizing the connections to them, help enforcing access control, etc.
+
+## Docker-Compose
+
+Examples of deploying the CA Gateway with docker-compose and orchestrating it in
+the context of multiple Docker networks with internal or external network access
+can be found in the subfolder [example-deployments](./example-deployments).
 
 ## Synopsis
 
@@ -70,7 +118,16 @@ Defaults are:
   (The default filenames depend on which files exist in home)
 ```
 
-## CLI Help
+## Configuration Files `access` and `pvlist`
+
+A minimal example for a fully permissive configuration of the
+pvlist and access configuration files can be found in the
+subfolder [example-deployments/\_conf](example-deployments/_conf).
+
+Detailed examples for the configuration files can be found in
+[the example folder of the ca-gateway source code][].
+
+## Full CLI Help
 
 ```
 $ docker run --rm pklaus/ca-gateway -help
@@ -163,3 +220,6 @@ $ docker run --rm pklaus/ca-gateway -help
 -archive: Enables archive monitor. Additional log event monitor is
  is created.
 ```
+
+[the example folder of the ca-gateway source code]: https://github.com/epics-extensions/ca-gateway/tree/master/example
+[/r/pklaus/ca-gateway]: https://hub.docker.com/r/pklaus/ca-gateway
