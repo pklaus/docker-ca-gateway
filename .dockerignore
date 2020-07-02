@@ -1,1 +1,5 @@
 example-deployments
+README.md
+*.sh
+.gitignore
+.git

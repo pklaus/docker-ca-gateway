@@ -13,13 +13,13 @@ services:
       - "5064-5065:5064-5065/udp"
       - "5064-5065:5064-5065"
     restart: always
-    environment:
-      - SIP=10.2.1.53 # <- adjust to IP of your host machine
-      - CIP=172.20.255.255
-    command: /bin/bash ./start_gateway.sh
+    volumes:
+      - ../_conf/access:/access:ro
+      - ../_conf/pvlist:/pvlist:ro
+    command: -sip 10.2.1.53 -cip 172.20.255.255 -pvlist /pvlist -access /access -log /dev/stdout -debug 1
 
   softioc:
-    image: pklaus/epics_base:7.0.2.2_debian
+    image: pklaus/epics_base:7.0.4_debian
     stdin_open: true
     tty: true
     working_dir: /epics/iocs/example/iocBoot/iocEXAMPLE
@@ -31,14 +31,14 @@ services:
     command: ./st.cmd
 
   camonitor_on_host:
-    image: pklaus/epics_base:7.0.2.2_debian
+    image: pklaus/epics_base:7.0.4_debian
     network_mode: host
     stdin_open: true
     tty: true
     environment:
       - EPICS_CA_ADDR_LIST=10.2.1.53 # <- adjust to IP of your host machine
       - EPICS_CA_AUTO_ADDR_LIST=no
-    command: /bin/bash -c "sleep 5 && camonitor root:ai1"
+    command: /bin/bash -c "sleep 5 && camonitor scs:ai1"
 
 networks:
 

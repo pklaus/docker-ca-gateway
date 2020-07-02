@@ -18,13 +18,13 @@ services:
         ipv4_address: 172.100.255.254
       epics_field:
         ipv4_address: 172.20.255.254
-    environment:
-      - SIP=172.100.255.254
-      - CIP=172.20.255.255
-    command: /bin/bash ./start_gateway.sh
+    volumes:
+      - ../_conf/access:/access:ro
+      - ../_conf/pvlist:/pvlist:ro
+    command: -sip 172.100.255.254 -cip 172.20.255.255 -pvlist /pvlist -access /access -log /dev/stdout -debug 1
 
   softioc:
-    image: pklaus/epics_base:7.0.2.2_debian
+    image: pklaus/epics_base:7.0.4_debian
     stdin_open: true
     tty: true
     working_dir: /epics/iocs/example/iocBoot/iocEXAMPLE
@@ -36,12 +36,12 @@ services:
     command: ./st.cmd
 
   camonitor_on_supervisory:
-    image: pklaus/epics_base:7.0.2.2_debian
+    image: pklaus/epics_base:7.0.4_debian
     networks:
       - a_epics_supervisory
     stdin_open: true
     tty: true
-    command: /bin/bash -c "sleep 5 && camonitor root:ai1"
+    command: /bin/bash -c "sleep 5 && camonitor scs:ai1"
 
 networks:
 
