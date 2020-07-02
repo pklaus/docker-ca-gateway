@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -yq python python-pip rsync \
  && pip install https://github.com/larsks/dockerize/archive/a903419.zip
 
 # Move the executable "gateway" to a more prominent location
-RUN mv /epics/ca-gateway/bin/linux-x86_64/gateway /epics/
+RUN mv /epics/ca-gateway/bin/*/gateway /epics/
 
 # Dockerize
 RUN dockerize -L preserve -n -u scs -o /ca-gateway_root --verbose /epics/gateway \
