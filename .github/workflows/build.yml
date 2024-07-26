@@ -1,0 +1,89 @@
+name: Build and publish image to ghcr.io/epics-containers
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    # pull requests are a duplicate of a branch push if within the same repo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        epics-target: [linux-x86_64] # , linux-aarch64]
+        include:
+          - os: ubuntu-latest # everyone is on ubuntu-latest
+          - epics-target: linux-x86_64
+            platform: linux/amd64
+
+          # # a temporary name until multi-arch is supported
+          # - epics-target: linux-aarch64
+          #     extension: -native-aarch64
+          #     platform: linux/arm64
+
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+    steps:
+
+      - name: Log in to GitHub Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io/${{ github.repository_owner }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          platforms: ${{ matrix.platform }}
+          target: final
+          cache-from: type=gha,scope=${{ matrix.epics-target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.epics-target }}
+          tags: ci_test
+          load: true
+
+      - name: Test image
+        # Opportunity to run tests using docker run 'ci_test'
+        if: ${{ matrix.epics-target == 'linux-x86_64' }}
+        run: if [ -f tests/run-tests.sh ]; then tests/run-tests.sh ci_test; fi
+
+      - name: Push final image
+        if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+        uses: docker/build-push-action@v6
+        with:
+          platforms: ${{ matrix.platform }}
+          target: final
+          tags: ${{ env.TAG }}:${{ github.ref_name }}
+          push: true
+
+      - name: Push debug image
+        if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+        uses: docker/build-push-action@v6
+        with:
+          platforms: ${{ matrix.platform }}
+          target: dockerizer
+          tags: ${{ env.TAG }}-debug:${{ github.ref_name }}
+          push: true
+
+  release:
+    # Release on tag push
+    needs: [build]
+    if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Github Release
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v2.0.8
+        with:
+          generate_release_notes: true

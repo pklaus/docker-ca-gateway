@@ -1,0 +1,8 @@
+# Look for updates to python and docker dependencies.
+
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
